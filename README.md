@@ -81,7 +81,9 @@ claimed in `the-box.md`: with host networking, `-addr` is what keeps the collect
 
 One-time setup on the box:
 
-1. `sudo git clone https://github.com/theted/netstats /opt/netstats && sudo chown -R ubuntu: /opt/netstats`
+1. `sudo git clone https://github.com/theted/netstats /opt/netstats && sudo chown -R ubuntu: /opt/netstats`,
+   then `touch /opt/netstats/.env`. The deploy passes `--env-file .env`, and compose refuses a missing
+   one.
 2. `sudo cp deploy/nginx.conf /etc/nginx/sites-available/netstats`,
    `sudo ln -s ../sites-available/netstats /etc/nginx/sites-enabled/`,
    `sudo nginx -t && sudo systemctl reload nginx`
