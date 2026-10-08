@@ -85,9 +85,10 @@ One-time setup on the box:
 2. `sudo cp deploy/nginx.conf /etc/nginx/sites-available/netstats`,
    `sudo ln -s ../sites-available/netstats /etc/nginx/sites-enabled/`,
    `sudo nginx -t && sudo systemctl reload nginx`
-3. At one.com, add an `A` record for `globe` pointing to the Elastic IP. It has to be explicit: the
-   wildcard `CNAME` would otherwise send the name to CloudFront.
-4. Once `dig +short globe.sundbergsolutions.se` returns the box:
+3. At one.com, add `CNAME globe` → `ec2-63-34-177-63.eu-west-1.compute.amazonaws.com`, as for
+   snippets and visits. It has to be explicit: the wildcard `CNAME` would otherwise send the name to
+   the apex CloudFront site.
+4. Once `getent hosts globe.sundbergsolutions.se` returns the box:
    `sudo certbot --nginx -d globe.sundbergsolutions.se`
 5. Set the repo secrets `EC2_HOST`, `EC2_USER` and `EC2_SSH_KEY`.
 
