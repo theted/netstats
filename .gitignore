@@ -4,3 +4,4 @@
 /web/node_modules/
 # A dump of this laptop's real traffic: its addresses and location.
 /events.txt
+.env
