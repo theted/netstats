@@ -1,0 +1,176 @@
+:root {
+  --green: #00ff55;
+  --dim: rgb(0 255 85 / 0.45);
+  --faint: rgb(0 255 85 / 0.22);
+  --up: #c8ff3c;
+  --down: #29ff8c;
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: var(--green);
+  font: 12px/1.45 ui-monospace, 'JetBrains Mono', 'JetBrainsMono Nerd Font', Menlo, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+canvas.dragging {
+  cursor: grabbing;
+}
+
+canvas.pointing {
+  cursor: pointer;
+}
+
+.hud {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  text-shadow: 0 0 6px rgb(0 255 85 / 0.35);
+}
+
+.totals {
+  top: 20px;
+  left: 22px;
+}
+
+.title {
+  color: var(--dim);
+  letter-spacing: 0.18em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.dot.live {
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+
+.dot.lost {
+  background: #ff4d4d;
+}
+
+.rates {
+  margin-top: 10px;
+  font-size: 20px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.rates .up {
+  color: var(--up);
+}
+
+.rates .down {
+  color: var(--down);
+}
+
+.rates span.arrow {
+  display: inline-block;
+  width: 1.2em;
+  opacity: 0.7;
+}
+
+.counts {
+  margin-top: 6px;
+  color: var(--dim);
+}
+
+.top {
+  bottom: 20px;
+  left: 22px;
+  min-width: 300px;
+}
+
+.top div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  white-space: nowrap;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.top div:first-child {
+  color: var(--green);
+}
+
+.top .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.help {
+  bottom: 20px;
+  right: 22px;
+  text-align: right;
+  color: var(--faint);
+}
+
+.help a {
+  color: inherit;
+  pointer-events: auto;
+}
+
+.tip {
+  padding: 8px 10px;
+  border: 1px solid var(--faint);
+  background: rgb(0 10 4 / 0.82);
+  white-space: nowrap;
+  transform: translate(14px, 14px);
+  display: none;
+}
+
+.tip.show {
+  display: block;
+}
+
+.tip .head {
+  color: var(--green);
+}
+
+.tip .sub {
+  color: var(--dim);
+}
+
+.tip .up {
+  color: var(--up);
+}
+
+.tip .down {
+  color: var(--down);
+}
+
+@media (max-width: 640px) {
+  .top,
+  .help {
+    display: none;
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "netstats-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Globe frontend for netstats: live network traffic as arcs and pulses",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.185.1",
+    "topojson-client": "^3.1.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.4",
+    "@types/topojson-client": "^3.1.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
+  }
+}

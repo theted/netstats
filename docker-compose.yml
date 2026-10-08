@@ -1,0 +1,18 @@
+# The collector in a container. It needs the host's network to see the host's traffic, and raw
+# sockets to capture it; every other capability is dropped. On its own this runs laptop mode on
+# http://127.0.0.1:7777 (without process names: the container can't see other processes). The box
+# adds docker-compose.ec2.yml.
+
+services:
+  netstats:
+    build: .
+    network_mode: host
+    cap_drop: [ALL]
+    cap_add: [NET_RAW]
+    security_opt: ['no-new-privileges:true']
+    read_only: true
+    volumes:
+      - geo:/app/data
+
+volumes:
+  geo:

@@ -1,0 +1,20 @@
+# The SSH-and-rebuild steps live in theted/workflows/.github/workflows/deploy-ec2.yml. The box-side
+# setup it assumes (port 8084, /opt/netstats, nginx, certificate) is in README.md.
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: test
+    uses: theted/workflows/.github/workflows/deploy-ec2.yml@master
+    with:
+      app-dir: /opt/netstats
+      compose-files: -f docker-compose.yml -f docker-compose.ec2.yml
+    secrets: inherit

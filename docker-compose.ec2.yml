@@ -1,0 +1,15 @@
+# Overlay for the shared EC2 box (Main Vibe). See theted/infrastructure: the-box.md, ec2-docker.md.
+
+services:
+  netstats:
+    # Port 8084, claimed in the-box.md. With host networking there is no ports: mapping: the
+    # 127.0.0.1 in -addr is what keeps the collector off the internet, behind the host nginx.
+    # -home is the box's Elastic IP. No interface carries it (AWS translates it to the private
+    # address), so it can't be found by looking.
+    command: [-public, -addr, 127.0.0.1:8084, -home, 63.34.177.63, -tick, 1s, -max-viewers, '50']
+    restart: always
+    # The box has 4 GiB shared with every other stack. Each viewer's gzip stream takes about 0.8 MB,
+    # on top of the working set of the memory-mapped geo database.
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
