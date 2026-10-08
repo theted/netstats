@@ -88,7 +88,9 @@ One-time setup on the box:
 3. At one.com, add `CNAME globe` → `ec2-63-34-177-63.eu-west-1.compute.amazonaws.com`, as for
    snippets and visits. It has to be explicit: the wildcard `CNAME` would otherwise send the name to
    the apex CloudFront site.
-4. Once `getent hosts globe.sundbergsolutions.se` returns the box:
+4. Once public DNS sends the name to the box, run the command below. Ask a public resolver, as Let's
+   Encrypt does. On the box itself, the AWS resolver answers with the private address:
+   `curl -s 'https://cloudflare-dns.com/dns-query?name=globe.sundbergsolutions.se&type=A' -H 'accept: application/dns-json'`
    `sudo certbot --nginx -d globe.sundbergsolutions.se`
 5. Set the repo secrets `EC2_HOST`, `EC2_USER` and `EC2_SSH_KEY`.
 
