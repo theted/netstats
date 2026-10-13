@@ -10,5 +10,9 @@
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
+    <!-- Visit counter: daily totals only, no cookies or stored IPs (theted/tracking-pixel). Counted
+         only when loaded from globe.sundbergsolutions.se, so local runs are ignored. -->
+    <script>new Image().src='https://visits.sundbergsolutions.se/v.gif?s=netstats&r='+encodeURIComponent(document.referrer)</script>
+    <noscript><img src="https://visits.sundbergsolutions.se/v.gif?s=netstats" alt="" width="1" height="1" style="position:absolute"></noscript>
   </body>
 </html>
