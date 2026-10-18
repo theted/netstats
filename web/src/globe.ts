@@ -18,6 +18,7 @@ export class Globe {
   private readonly home = new THREE.Vector3(0, 0, 1);
   private readonly beacon: THREE.Points;
   private readonly beaconMaterial: THREE.ShaderMaterial;
+  private land: THREE.LineSegments[] = [];
 
   constructor(translucent: boolean) {
     this.group.add(sphere(translucent), halo(), graticule());
@@ -57,15 +58,21 @@ export class Globe {
     this.group.add(this.beacon);
   }
 
-  /** Loads coastlines and borders. The globe is usable before they arrive. */
+  /**
+   * Loads coastlines and borders, in place of any loaded before. The globe is usable before they
+   * arrive.
+   */
   async loadLand(url: string) {
     const topo = (await (await fetch(url)).json()) as Topology<{ countries: GeometryCollection; land: GeometryCollection }>;
     const coast = mesh(topo, topo.objects.land);
     const borders = mesh(topo, topo.objects.countries, (a, b) => a !== b);
-    this.group.add(
-      lines(coast.coordinates, 1.0015, 0.42),
-      lines(borders.coordinates, 1.0012, 0.1),
-    );
+    for (const old of this.land) {
+      this.group.remove(old);
+      old.geometry.dispose();
+      (old.material as THREE.Material).dispose();
+    }
+    this.land = [lines(coast.coordinates, 1.0015, 0.42), lines(borders.coordinates, 1.0012, 0.1)];
+    this.group.add(...this.land);
   }
 
   setHome(lon: number, lat: number) {

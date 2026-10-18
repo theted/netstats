@@ -313,13 +313,11 @@ button {
 }
 
 .swatch:hover,
-.swatch:has(input:checked),
-.swatch.on {
+.swatch:has(input:checked) {
   opacity: 1;
 }
 
-.swatch:has(input:checked),
-.swatch.on {
+.swatch:has(input:checked) {
   outline: 1px solid var(--swatch);
   outline-offset: 3px;
 }
@@ -352,6 +350,35 @@ button {
   inset: 4px;
   border-radius: 50%;
   background: var(--swatch);
+  pointer-events: none;
+}
+
+/* The colour field: hue across, white laid over it toward the top, as settings.ts reads it. */
+.field {
+  position: relative;
+  height: 48px;
+  margin-top: 14px;
+  border-radius: 2px;
+  background:
+    linear-gradient(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0)),
+    linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.field:focus-visible {
+  outline: 1px dashed var(--dim);
+  outline-offset: 3px;
+}
+
+.field .mark {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid #000;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #fff;
   pointer-events: none;
 }
 
