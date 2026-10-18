@@ -11,7 +11,7 @@ import { Globe } from './globe.ts';
 import { Hud } from './hud.ts';
 import { Controls, type Settings } from './settings.ts';
 import { Spin } from './spin.ts';
-import { setTheme } from './theme.ts';
+import { setTheme, themeFrom, THEMES } from './theme.ts';
 import './style.css';
 
 const FOV = 40;
@@ -82,7 +82,7 @@ function apply(s: Settings) {
   arcs.trail = s.trail;
   arcs.dots.points.visible = s.dots;
   glow = s.glow;
-  setTheme(s.theme);
+  setTheme(s.theme === 'custom' ? themeFrom(s.custom) : THEMES[s.theme]);
 }
 const controls = new Controls(app, apply);
 if (params.has('noglow')) controls.set({ glow: false }, false);
