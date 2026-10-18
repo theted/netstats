@@ -10,6 +10,9 @@
  *   overshoots a little when the drag stops. The tilt springs back to rest with a small bounce, and
  *   zoom runs into soft stops and is pulled back from them. (OrbitControls damps by exponential
  *   decay, which can glide but can never overshoot; that is why this is hand-rolled.)
+ *
+ * The wheel zooms toward the point under the cursor, as a map does, so a city can be zoomed into
+ * from the whole globe.
  */
 
 /** Idle spin in radians per second: one turn every two minutes. */
@@ -23,14 +26,30 @@ const TILT_D = 7.5;
 /** How fast a fling decays back to the idle spin, in seconds. */
 const FLING_TAU = 1.4;
 const MAX_FLING = 7;
-/** Tilt limits. Past the soft one a drag meets growing resistance; it can't pass the hard one. */
-const PITCH_SOFT = 1.05;
-const PITCH_HARD = 1.35;
-/** Zoom stops, as camera distance from the centre, and the spring that holds them. */
-export const DIST_MIN = 1.9;
+/**
+ * Tilt limits. Past the soft one a drag meets growing resistance; it can't pass the hard one. Both
+ * stop short of the pole (π/2), so a city as far north as Tromsø can still be turned to face us.
+ */
+const PITCH_SOFT = 1.4;
+const PITCH_HARD = 1.52;
+/**
+ * Zoom stops, as camera distance from the centre (the globe's radius is 1), and the spring that
+ * holds them. At the closest the view is about 230 km tall: a city and the country around it.
+ */
+export const DIST_MIN = 1.05;
 export const DIST_MAX = 9;
 const ZOOM_K = 70;
 const ZOOM_D = 11;
+/**
+ * Zoom per pixel of wheel travel. It scales the height above the ground, so every notch feels the
+ * same, high or low.
+ */
+const ZOOM_RATE = 0.0015;
+/**
+ * Below this height above the ground the idle spin slows in step with the height, so up close the
+ * map drifts by at the same pace on screen.
+ */
+const SPIN_HEIGHT = 0.9;
 /** Without springs: the zoom's easing time constant, and how long the home key's glide takes. */
 const ZOOM_TAU = 0.12;
 const GLIDE_TIME = 0.9;
@@ -49,6 +68,17 @@ interface Sample {
   t: number;
   yaw: number;
   pitch: number;
+}
+
+type Vec3 = [number, number, number];
+
+/** A point of the globe kept under the cursor while a zoom eases in. */
+interface Anchor {
+  /** The point, in the globe's own frame. */
+  local: Vec3;
+  /** The cursor, in normalised device coordinates. */
+  x: number;
+  y: number;
 }
 
 export class Spin {
@@ -75,6 +105,7 @@ export class Spin {
   private lastWheel = -Infinity;
   private clock = 0;
   private glide: Glide | null = null;
+  private anchor: Anchor | null = null;
 
   constructor(
     private readonly el: HTMLElement,
@@ -103,6 +134,7 @@ export class Spin {
     const toYaw = this.targetYaw + turn - 2 * Math.PI * Math.round(turn / (2 * Math.PI));
     const toPitch = clamp(view.pitch, -PITCH_SOFT, PITCH_SOFT);
     this.targetYawVel = this.idleSpin;
+    this.anchor = null;
     if (this.springs) {
       this.targetYaw = toYaw;
       this.restPitch = this.targetPitch = toPitch;
@@ -118,6 +150,7 @@ export class Spin {
     this.yawVel = this.pitchVel = 0;
     this.targetYawVel = this.idleSpin;
     this.glide = null;
+    this.anchor = null;
   }
 
   /** The distance at which the globe, with room for its arcs, fills the shorter side of the view. */
@@ -149,9 +182,13 @@ export class Spin {
     }
 
     if (!this.springs) {
+      this.dist += (this.targetDist - this.dist) * (1 - Math.exp(-h / ZOOM_TAU));
+      if (this.anchor && !this.dragging) {
+        this.hold(this.anchor, this.dist);
+        if (Math.abs(this.targetDist - this.dist) < 1e-4 * (this.dist - 1)) this.anchor = null;
+      }
       this.yaw = this.targetYaw;
       this.pitch = this.targetPitch;
-      this.dist += (this.targetDist - this.dist) * (1 - Math.exp(-h / ZOOM_TAU));
       return;
     }
 
@@ -165,12 +202,41 @@ export class Spin {
 
     // A wheel gesture may push the target past a stop; once it pauses, the stop pulls it back.
     if (this.clock - this.lastWheel > 0.15) this.targetDist = clamp(this.targetDist, DIST_MIN, DIST_MAX);
-    this.distVel += (ZOOM_K * (this.targetDist - this.dist) - ZOOM_D * this.distVel) * h;
-    this.dist += this.distVel * h;
+    // The spring works on the log of the height, so an overshoot is a share of the height and can
+    // never carry the camera into the ground.
+    const z = Math.log(this.dist - 1);
+    this.distVel += (ZOOM_K * (Math.log(this.targetDist - 1) - z) - ZOOM_D * this.distVel) * h;
+    this.dist = 1 + Math.exp(z + this.distVel * h);
   }
 
   private get idleSpin() {
-    return this.autospin ? IDLE_SPIN : 0;
+    return this.autospin ? IDLE_SPIN * Math.min(1, (this.dist - 1) / SPIN_HEIGHT) : 0;
+  }
+
+  /**
+   * Where the ray through a point of the screen, in normalised device coordinates, first meets the
+   * globe, with the camera at dist. The camera sits on +Z looking at the centre, so its frame is
+   * the world's. Null if the ray misses.
+   */
+  private hit(x: number, y: number, dist: number): Vec3 | null {
+    const t = Math.tan(((this.fov / 2) * Math.PI) / 180);
+    const aspect = this.el.clientWidth / Math.max(this.el.clientHeight, 1);
+    const d: Vec3 = [x * t * aspect, y * t, -1];
+    const n = Math.hypot(...d);
+    const b = (dist * d[2]) / n;
+    const disc = b * b - dist * dist + 1;
+    if (disc < 0) return null;
+    const s = (-b - Math.sqrt(disc)) / n;
+    return [d[0] * s, d[1] * s, dist + d[2] * s];
+  }
+
+  /** Turns the globe so the anchor's point is under its cursor again, with the camera at dist. */
+  private hold(anchor: Anchor, dist: number) {
+    const q = this.hit(anchor.x, anchor.y, dist);
+    const turn = q && turnTo(anchor.local, q, this.targetYaw, this.targetPitch);
+    if (!turn) return; // the cursor is off the globe from here: zoom toward the centre
+    this.targetYaw = turn.yaw;
+    this.targetPitch = clamp(turn.pitch, -PITCH_SOFT, PITCH_SOFT);
   }
 
   /** Radians of rotation per pixel of drag, so the point under the cursor stays under it. */
@@ -188,6 +254,7 @@ export class Spin {
     }
     this.dragging = true;
     this.glide = null;
+    this.anchor = null;
     this.lastX = e.clientX;
     this.lastY = e.clientY;
     // Grab the globe where it is now, not where the spring was taking it.
@@ -199,7 +266,8 @@ export class Spin {
   private onMove = (e: PointerEvent) => {
     if (!this.dragging) return;
     const k = this.radPerPx();
-    this.targetYaw += (e.clientX - this.lastX) * k;
+    // Yaw turns about the poles, so at the latitude in view the ground moves cos(pitch) as far.
+    this.targetYaw += ((e.clientX - this.lastX) * k) / Math.max(Math.cos(this.pitch), 0.2);
     const dPitch = (e.clientY - this.lastY) * k;
     this.targetPitch = this.springs
       ? this.targetPitch + this.resist(this.targetPitch, dPitch)
@@ -234,17 +302,77 @@ export class Spin {
   private onWheel = (e: WheelEvent) => {
     e.preventDefault();
     const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
-    let next = this.targetDist * Math.exp(dy * 0.0012);
+    let next = 1 + (this.targetDist - 1) * Math.exp(dy * ZOOM_RATE);
+    const r = this.el.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    const y = 1 - ((e.clientY - r.top) / r.height) * 2;
     if (!this.springs) {
+      // Take hold of what is under the cursor now; each step of the zoom turns it back under.
+      const q = this.hit(x, y, this.dist);
+      this.anchor = q && { local: toGlobe(q, this.yaw, this.pitch), x, y };
+      if (this.anchor) this.glide = null;
       this.targetDist = clamp(next, DIST_MIN, DIST_MAX);
       return;
     }
+    // With springs the globe trails its target, so turn the target once, to where the zoom ends.
+    const q = this.hit(x, y, this.targetDist);
     // Rubber band: past a stop, each notch moves the target a third as far, up to some slack.
-    if (next < DIST_MIN) next = Math.max(DIST_MIN - 0.35, this.targetDist + (next - this.targetDist) / 3);
+    if (next < DIST_MIN) next = Math.max(1 + (DIST_MIN - 1) * 0.6, this.targetDist + (next - this.targetDist) / 3);
     if (next > DIST_MAX) next = Math.min(DIST_MAX + 1.2, this.targetDist + (next - this.targetDist) / 3);
     this.targetDist = next;
     this.lastWheel = this.clock;
+    if (q) {
+      this.hold({ local: toGlobe(q, this.targetYaw, this.restPitch), x, y }, clamp(next, DIST_MIN, DIST_MAX));
+      this.restPitch = this.targetPitch;
+    }
   };
+}
+
+/**
+ * A point in view back in the globe's own frame. The globe is turned by Euler(pitch, yaw, 0), which
+ * is the pitch about X applied after the yaw about Y; this undoes both.
+ */
+function toGlobe([x, y, z]: Vec3, yaw: number, pitch: number): Vec3 {
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  const y1 = y * cp + z * sp;
+  const z1 = -y * sp + z * cp;
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  return [x * cy - z1 * sy, y1, x * sy + z1 * cy];
+}
+
+/**
+ * The yaw and pitch that turn point p of the globe to point q in view, nearest the given ones.
+ * The yaw has to bring p's x to q's x, since the pitch leaves x alone; that leaves two choices,
+ * and the pitch then follows from each. Null if no yaw can, which happens only near the poles.
+ */
+function turnTo(p: Vec3, q: Vec3, yaw: number, pitch: number) {
+  const rho = Math.hypot(p[0], p[2]);
+  if (rho < 1e-9 || Math.abs(q[0]) > rho) return null;
+  const alpha = Math.atan2(p[2], p[0]);
+  const spread = Math.acos(q[0] / rho);
+  let best: { yaw: number; pitch: number } | null = null;
+  let cost = Infinity;
+  for (const theta of [alpha - spread, alpha + spread]) {
+    // Ry(theta) maps p's x to rho·cos(alpha - theta) = q's x; its z is what the pitch then turns.
+    const rz = -p[0] * Math.sin(theta) + p[2] * Math.cos(theta);
+    const turn = {
+      yaw: yaw + wrap(theta - yaw),
+      pitch: wrap(Math.atan2(q[2], q[1]) - Math.atan2(rz, p[1])),
+    };
+    const c = Math.abs(turn.yaw - yaw) + Math.abs(turn.pitch - pitch);
+    if (c < cost) {
+      cost = c;
+      best = turn;
+    }
+  }
+  return best;
+}
+
+/** An angle brought into (-π, π]. */
+function wrap(a: number) {
+  return a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
 }
 
 function clamp(v: number, lo: number, hi: number) {

@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { el } from './hud.ts';
 import { THEMES, type ThemeName } from './theme.ts';
 
@@ -114,18 +115,19 @@ export class Controls {
       input.addEventListener('change', () => this.set({ theme: name as ThemeName }));
       this.refresh.push(() => (input.checked = this.settings.theme === name));
     }
-    // Any colour: choosing the swatch brings back the last one picked, and opens the picker.
+    // Any colour: choosing the swatch brings back the last one picked, and a field to pick another.
     const custom = el('label', 'swatch custom', swatches);
     custom.title = 'any color';
-    const picker = el('input', '', custom) as HTMLInputElement;
-    picker.type = 'color';
-    picker.setAttribute('aria-label', 'any color');
-    picker.addEventListener('click', () => this.set({ theme: 'custom' }));
-    picker.addEventListener('input', () => this.set({ theme: 'custom', custom: picker.value }));
+    const choose = el('input', '', custom) as HTMLInputElement;
+    choose.type = 'radio';
+    choose.name = 'theme';
+    choose.setAttribute('aria-label', 'any color');
+    choose.addEventListener('change', () => this.set({ theme: 'custom' }));
+    const field = colorField(colors, (color) => this.set({ theme: 'custom', custom: color }));
     this.refresh.push(() => {
-      picker.value = this.settings.custom;
+      choose.checked = this.settings.theme === 'custom';
       custom.style.setProperty('--swatch', this.settings.custom);
-      custom.classList.toggle('on', this.settings.theme === 'custom');
+      field.show(this.settings.theme === 'custom' ? this.settings.custom : null);
     });
 
     const reset = el('button', 'reset', panel, 'defaults');
@@ -153,4 +155,67 @@ export class Controls {
     input.addEventListener('change', () => this.set({ [key]: input.checked }));
     this.refresh.push(() => (input.checked = this.settings[key]));
   }
+}
+
+/** The palest the colour field goes, as an HSL lightness: themeFrom lifts nothing past it. */
+const PALEST = 0.8;
+
+/**
+ * A field to pick a colour in: hue across, and from vivid at the bottom to pale at the top. The
+ * page draws it, unlike the browser's own picker, which can open off the edge of the screen. Arrow
+ * keys move the mark too.
+ */
+function colorField(parent: HTMLElement, onPick: (color: string) => void) {
+  const field = el('div', 'field', parent);
+  const mark = el('div', 'mark', field);
+  field.tabIndex = 0;
+  field.setAttribute('role', 'slider');
+  field.setAttribute('aria-label', 'color: left and right for the hue, up and down for how pale');
+  field.setAttribute('aria-valuemin', '0');
+  field.setAttribute('aria-valuemax', '360');
+  let hue = 0;
+  let pale = 0;
+
+  const pick = (h: number, p: number) => {
+    const color = new THREE.Color().setHSL(h, 1, 0.5 + (PALEST - 0.5) * clamp(p, 0, 1), THREE.SRGBColorSpace);
+    onPick(`#${color.getHexString()}`);
+  };
+  const pointAt = (e: PointerEvent) => {
+    const r = field.getBoundingClientRect();
+    pick(clamp((e.clientX - r.left) / r.width, 0, 0.999), 1 - (e.clientY - r.top) / r.height);
+  };
+  field.addEventListener('pointerdown', (e) => {
+    field.setPointerCapture(e.pointerId);
+    pointAt(e);
+  });
+  field.addEventListener('pointermove', (e) => {
+    if (field.hasPointerCapture(e.pointerId)) pointAt(e);
+  });
+  field.addEventListener('keydown', (e) => {
+    const step = { ArrowLeft: [-1 / 72, 0], ArrowRight: [1 / 72, 0], ArrowUp: [0, 0.1], ArrowDown: [0, -0.1] }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    pick(hue + step[0], pale + step[1]);
+  });
+
+  return {
+    /** Shows the field with its mark on a colour, or hides it. */
+    show(color: string | null) {
+      field.hidden = color === null;
+      if (color === null) return;
+      const hsl = { h: 0, s: 0, l: 0 };
+      new THREE.Color(color).getHSL(hsl, THREE.SRGBColorSpace);
+      hue = hsl.h;
+      pale = clamp((hsl.l - 0.5) / (PALEST - 0.5), 0, 1);
+      mark.style.left = `${hue * 100}%`;
+      mark.style.top = `${(1 - pale) * 100}%`;
+      mark.style.background = color;
+      field.setAttribute('aria-valuenow', String(Math.round(hue * 360)));
+      field.setAttribute('aria-valuetext', color);
+    },
+  };
+}
+
+function clamp(v: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, v));
 }

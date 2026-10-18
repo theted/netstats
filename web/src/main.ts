@@ -30,9 +30,13 @@ const FAR_SIDE_BRIGHTNESS = 0.28;
 const params = new URLSearchParams(location.search);
 const springs = SPRINGS || params.has('springs');
 const translucent = params.has('solid') ? false : TRANSLUCENT || params.has('translucent');
-farSide.value = translucent ? FAR_SIDE_BRIGHTNESS : 0;
 /** Radius, in globe radii, that must fit the shorter side of the view: the globe plus most arcs. */
 const FRAME_RADIUS = 1.42;
+/**
+ * Below this height above the ground the finer coastlines are fetched: Natural Earth's 1:50m in
+ * place of 1:110m. They are seven times the data, so only those who zoom in pay for them.
+ */
+const FINE_LAND_HEIGHT = 0.6;
 
 const app = document.getElementById('app')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -46,7 +50,9 @@ const globe = new Globe(translucent);
 const arcs = new Arcs(springs);
 globe.group.add(arcs.ribbons, arcs.ends, arcs.pulses.mesh, arcs.dots.points);
 scene.add(globe.group);
-globe.loadLand(`${import.meta.env.BASE_URL}geo/countries-110m.json`).catch((e) => console.error('coastlines:', e));
+const geo = `${import.meta.env.BASE_URL}geo`;
+const land = globe.loadLand(`${geo}/countries-110m.json`).catch((e) => console.error('coastlines:', e));
+let fineLand = false;
 
 const hud = new Hud(app);
 
@@ -134,6 +140,16 @@ function render(dt: number, time: number) {
 
   spin.update(dt);
   globe.group.rotation.set(spin.pitch, spin.yaw, 0);
+  // Up close the near plane comes down with the camera, or it would cut into the ground, and the
+  // far side fades out: it would fill the whole view, mirrored through the ground.
+  camera.near = Math.min(0.05, (spin.dist - 1) * 0.5);
+  camera.updateProjectionMatrix();
+  farSide.value = translucent ? FAR_SIDE_BRIGHTNESS * THREE.MathUtils.smoothstep(spin.dist - 1, 0.2, 0.6) : 0;
+  if (!fineLand && spin.dist - 1 < FINE_LAND_HEIGHT) {
+    fineLand = true;
+    // After the coarse ones, so they can't land last and replace these.
+    land.then(() => globe.loadLand(`${geo}/countries-50m.json`)).catch((e) => console.error('fine coastlines:', e));
+  }
   camera.position.set(0, 0, spin.dist);
   camera.lookAt(0, 0, 0);
   scene.updateMatrixWorld();
