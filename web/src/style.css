@@ -1,7 +1,9 @@
+/* The accent, up and down colours are reset from theme.ts when the theme changes. */
 :root {
-  --green: #00ff55;
-  --dim: rgb(0 255 85 / 0.45);
-  --faint: rgb(0 255 85 / 0.22);
+  --accent: #00ff55;
+  --accent-rgb: 0 255 85;
+  --dim: rgb(var(--accent-rgb) / 0.45);
+  --faint: rgb(var(--accent-rgb) / 0.22);
   --up: #c8ff3c;
   --down: #29ff8c;
   color-scheme: dark;
@@ -13,7 +15,7 @@ body {
   height: 100%;
   overflow: hidden;
   background: #000;
-  color: var(--green);
+  color: var(--accent);
   font: 12px/1.45 ui-monospace, 'JetBrains Mono', 'JetBrainsMono Nerd Font', Menlo, monospace;
   -webkit-font-smoothing: antialiased;
 }
@@ -44,7 +46,7 @@ canvas.pointing {
   position: absolute;
   pointer-events: none;
   user-select: none;
-  text-shadow: 0 0 6px rgb(0 255 85 / 0.35);
+  text-shadow: 0 0 6px rgb(var(--accent-rgb) / 0.35);
 }
 
 .totals {
@@ -68,8 +70,8 @@ canvas.pointing {
 }
 
 .dot.live {
-  background: var(--green);
-  box-shadow: 0 0 8px var(--green);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
 }
 
 .dot.lost {
@@ -118,7 +120,7 @@ canvas.pointing {
 }
 
 .top div:first-child {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .top .name {
@@ -142,7 +144,7 @@ canvas.pointing {
 .tip {
   padding: 8px 10px;
   border: 1px solid var(--faint);
-  background: rgb(0 10 4 / 0.82);
+  background: rgb(0 0 0 / 0.82);
   white-space: nowrap;
   transform: translate(14px, 14px);
   display: none;
@@ -153,7 +155,7 @@ canvas.pointing {
 }
 
 .tip .head {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .tip .sub {
@@ -166,6 +168,180 @@ canvas.pointing {
 
 .tip .down {
   color: var(--down);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.cog {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  padding: 6px;
+  color: var(--faint);
+  line-height: 0;
+  transition: color 0.2s;
+}
+
+.cog svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.6s ease;
+}
+
+.cog:hover,
+.cog:focus-visible {
+  color: var(--dim);
+}
+
+.cog:focus-visible {
+  outline: 1px solid var(--faint);
+  border-radius: 50%;
+}
+
+.cog:hover svg {
+  transform: rotate(60deg);
+}
+
+/* A popover: placed under the cog instead of the browser's default centring. */
+.settings {
+  inset: 50px 22px auto auto;
+  margin: 0;
+  width: min(260px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 10px 14px 12px;
+  border: 1px solid var(--faint);
+  background: rgb(0 0 0 / 0.82);
+  backdrop-filter: blur(6px);
+  color: var(--accent);
+  text-shadow: 0 0 6px rgb(var(--accent-rgb) / 0.35);
+}
+
+.settings .head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  color: var(--dim);
+  letter-spacing: 0.18em;
+}
+
+.settings .close {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--dim);
+}
+
+.settings .close:hover {
+  color: var(--accent);
+}
+
+.settings input {
+  accent-color: var(--accent);
+}
+
+.settings .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.settings .check input {
+  margin: 0;
+}
+
+.settings .slider {
+  display: block;
+  margin-top: 10px;
+}
+
+.settings .row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.settings .value {
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings input[type='range'] {
+  display: block;
+  width: 100%;
+  margin: 6px 0 2px;
+}
+
+.settings .note {
+  color: var(--faint);
+}
+
+.settings .colors {
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.swatches {
+  display: flex;
+  gap: 12px;
+  padding-left: 2px;
+}
+
+.swatch {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: 0 0 6px var(--swatch);
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.swatch:hover,
+.swatch:has(input:checked) {
+  opacity: 1;
+}
+
+.swatch:has(input:checked) {
+  outline: 1px solid var(--swatch);
+  outline-offset: 3px;
+}
+
+.swatch:has(input:focus-visible) {
+  outline: 1px dashed var(--swatch);
+  outline-offset: 3px;
+}
+
+.swatch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.settings .reset {
+  margin-top: 12px;
+  color: var(--faint);
+}
+
+.settings .reset:hover {
+  color: var(--dim);
 }
 
 @media (max-width: 640px) {

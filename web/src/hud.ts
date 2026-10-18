@@ -13,7 +13,7 @@ export function formatRate(b: number): string {
   return `${v.toFixed(v < 10 ? 1 : 0)} ${units[u]}`;
 }
 
-function el(tag: string, className: string, parent: HTMLElement, text = '') {
+export function el(tag: string, className: string, parent: HTMLElement, text = '') {
   const e = document.createElement(tag);
   e.className = className;
   e.textContent = text;

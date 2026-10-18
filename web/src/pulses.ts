@@ -1,14 +1,12 @@
 import * as THREE from 'three';
 import { ARC_GLSL } from './arc-shader.ts';
 import { FAR_SIDE_GLSL, farSide } from './far-side.ts';
+import { DOWN_COLOR, UP_COLOR } from './theme.ts';
 
 /** How many pulses can be in flight at once; the oldest slot is reused when it runs out. */
 const POOL = 4096;
 /** Length of a pulse's tail, as a fraction of its arc. */
 const TAIL = 0.13;
-
-export const UP_COLOR = new THREE.Color('#c8ff3c');
-export const DOWN_COLOR = new THREE.Color('#29ff8c');
 
 /**
  * Glowing streaks travelling along arcs: outward for upload, homeward for download.
