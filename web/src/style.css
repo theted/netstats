@@ -313,11 +313,13 @@ button {
 }
 
 .swatch:hover,
-.swatch:has(input:checked) {
+.swatch:has(input:checked),
+.swatch.on {
   opacity: 1;
 }
 
-.swatch:has(input:checked) {
+.swatch:has(input:checked),
+.swatch.on {
   outline: 1px solid var(--swatch);
   outline-offset: 3px;
 }
@@ -330,9 +332,27 @@ button {
 .swatch input {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   margin: 0;
+  padding: 0;
   opacity: 0;
   cursor: pointer;
+}
+
+/* The colour picker: a colour wheel round the colour last picked. */
+.swatch.custom {
+  background: conic-gradient(#f33, #fd3, #3f6, #3df, #36f, #f3d, #f33);
+  box-shadow: none;
+}
+
+.swatch.custom::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--swatch);
+  pointer-events: none;
 }
 
 .settings .reset {
