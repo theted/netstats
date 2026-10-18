@@ -55,6 +55,8 @@ export class Spin {
   yaw: number;
   pitch: number;
   dist: number;
+  /** Whether the globe turns by itself when left alone. Switching it eases the spin in or out. */
+  autospin = true;
 
   private yawVel = 0;
   private pitchVel = 0;
@@ -100,7 +102,7 @@ export class Spin {
     const turn = view.yaw - this.targetYaw;
     const toYaw = this.targetYaw + turn - 2 * Math.PI * Math.round(turn / (2 * Math.PI));
     const toPitch = clamp(view.pitch, -PITCH_SOFT, PITCH_SOFT);
-    this.targetYawVel = IDLE_SPIN;
+    this.targetYawVel = this.idleSpin;
     if (this.springs) {
       this.targetYaw = toYaw;
       this.restPitch = this.targetPitch = toPitch;
@@ -114,6 +116,7 @@ export class Spin {
     this.yaw = this.targetYaw = view.yaw;
     this.pitch = this.targetPitch = this.restPitch = clamp(view.pitch, -PITCH_SOFT, PITCH_SOFT);
     this.yawVel = this.pitchVel = 0;
+    this.targetYawVel = this.idleSpin;
     this.glide = null;
   }
 
@@ -141,7 +144,7 @@ export class Spin {
       this.targetPitch = g.fromPitch + (g.toPitch - g.fromPitch) * e;
       if (g.t >= 1) this.glide = null;
     } else if (!this.dragging) {
-      this.targetYawVel += (IDLE_SPIN - this.targetYawVel) * (1 - Math.exp(-h / FLING_TAU));
+      this.targetYawVel += (this.idleSpin - this.targetYawVel) * (1 - Math.exp(-h / FLING_TAU));
       this.targetYaw += this.targetYawVel * h;
     }
 
@@ -164,6 +167,10 @@ export class Spin {
     if (this.clock - this.lastWheel > 0.15) this.targetDist = clamp(this.targetDist, DIST_MIN, DIST_MAX);
     this.distVel += (ZOOM_K * (this.targetDist - this.dist) - ZOOM_D * this.distVel) * h;
     this.dist += this.distVel * h;
+  }
+
+  private get idleSpin() {
+    return this.autospin ? IDLE_SPIN : 0;
   }
 
   /** Radians of rotation per pixel of drag, so the point under the cursor stays under it. */
@@ -213,7 +220,7 @@ export class Spin {
       this.targetYawVel = clamp((this.targetYaw - first.yaw) / span, -MAX_FLING, MAX_FLING);
       this.pitchVel += clamp((this.targetPitch - first.pitch) / span, -MAX_FLING, MAX_FLING) * 0.5;
     } else {
-      this.targetYawVel = 0; // let go without flinging: rest, then drift back up to the idle spin
+      this.targetYawVel = 0; // let go without flinging: rest, then drift back up to any idle spin
     }
   };
 

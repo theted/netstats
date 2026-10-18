@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import type { Flow, Snapshot } from './feed.ts';
 import { hash01, lonLatToVec3 } from './geo.ts';
-import { GREEN } from './globe.ts';
 import { ARC_GLSL } from './arc-shader.ts';
+import { Dots } from './dots.ts';
 import { FAR_SIDE_GLSL, farSide } from './far-side.ts';
 import { Pulses } from './pulses.ts';
+import { ACCENT, ARC_COLOR } from './theme.ts';
 
 /**
- * How arcs look at rest: a darker green than the coastlines, thin, and faint enough that the pulses
- * riding them carry the eye. Hovering an arc lights it up in the full green. Width is the half-width
- * of the line's soft core, in CSS pixels.
+ * How arcs look at rest: in ARC_COLOR, darker than the coastlines, thin, and faint enough that the
+ * pulses riding them carry the eye. Hovering an arc lights it up in the full accent colour. Width
+ * is the half-width of the line's soft core, in CSS pixels.
  */
-const ARC_COLOR = new THREE.Color('#0c9e44');
 const ARC_WIDTH = 1.6;
 const ARC_OPACITY = 0.3;
 
@@ -39,6 +39,8 @@ interface Arc {
   fade: number;
   highlight: number;
   alive: boolean;
+  /** Seconds since the host dropped out of the feed. */
+  gone: number;
   upDue: number;
   downDue: number;
 }
@@ -54,7 +56,10 @@ export class Arcs {
   readonly ribbons: THREE.Mesh;
   readonly ends: THREE.Points;
   readonly pulses: Pulses;
+  readonly dots: Dots;
   hovered: string | null = null;
+  /** Seconds an arc takes to fade once its host has dropped out of the feed. */
+  trail = 0;
 
   private readonly data = new Float32Array(MAX_ARCS * 3 * 4);
   private readonly arcs = new Map<string, Arc>();
@@ -72,6 +77,7 @@ export class Arcs {
     this.texture.minFilter = this.texture.magFilter = THREE.NearestFilter;
     this.texture.needsUpdate = true;
     this.pulses = new Pulses(this.texture);
+    this.dots = new Dots((flow, out) => this.endOf(flow, out));
 
     this.ribbonMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -79,7 +85,7 @@ export class Arcs {
         uResolution: { value: new THREE.Vector2(1, 1) },
         uWidth: { value: ARC_WIDTH },
         uColor: { value: ARC_COLOR },
-        uHot: { value: GREEN },
+        uHot: { value: ACCENT },
         uOpacity: { value: ARC_OPACITY },
         uFarSide: farSide,
       },
@@ -141,7 +147,7 @@ export class Arcs {
     this.ribbons.renderOrder = 2;
 
     this.endMaterial = new THREE.ShaderMaterial({
-      uniforms: { uArcs: { value: this.texture }, uPixelRatio: { value: 1 }, uColor: { value: GREEN }, uFarSide: farSide },
+      uniforms: { uArcs: { value: this.texture }, uPixelRatio: { value: 1 }, uColor: { value: ACCENT }, uFarSide: farSide },
       vertexShader: /* glsl */ `
         ${ARC_GLSL}
         ${FAR_SIDE_GLSL}
@@ -181,6 +187,7 @@ export class Arcs {
     this.homeLonLat = { lon, lat };
     lonLatToVec3(lon, lat, 1, this.home);
     for (const arc of this.arcs.values()) this.place(arc);
+    this.dots.replace();
   }
 
   /** Takes the latest snapshot: new hosts get arcs, missing ones start to fade. */
@@ -192,9 +199,11 @@ export class Arcs {
       if (arc) {
         arc.flow = flow;
         arc.alive = true;
+        arc.gone = 0;
         continue;
       }
-      const slot = this.free.pop();
+      this.dots.add(flow);
+      const slot = this.free.pop() ?? this.evict();
       if (slot === undefined) continue; // full: the host gets an arc once one frees up
       const fresh: Arc = {
         slot,
@@ -208,6 +217,7 @@ export class Arcs {
         fade: 0,
         highlight: 0,
         alive: true,
+        gone: 0,
         upDue: 0.7, // most of the way to the first pulse, so a new host shows traffic quickly
         downDue: 0.7,
       };
@@ -244,7 +254,9 @@ export class Arcs {
       const rate = arc.flow.up + arc.flow.down;
       const activity = arc.alive ? Math.min(1, Math.log10(1 + rate / 300) / 4) : 0;
       arc.activity += (activity - arc.activity) * ease(0.5);
-      arc.fade += ((arc.alive ? 1 : 0) - arc.fade) * ease(arc.alive ? 0.25 : 0.6);
+      if (!arc.alive) arc.gone += dt;
+      const fade = arc.alive ? 1 : Math.max(0, 1 - arc.gone / Math.max(this.trail, 1e-3));
+      arc.fade += (fade - arc.fade) * ease(arc.alive ? 0.25 : 0.6);
       arc.highlight += ((this.hovered === id ? 1 : 0) - arc.highlight) * ease(0.12);
 
       if (!arc.alive && arc.fade < 0.01) {
@@ -264,6 +276,7 @@ export class Arcs {
     this.ribbonMaterial.uniforms.uWidth.value = ARC_WIDTH * pixelRatio;
     this.endMaterial.uniforms.uPixelRatio.value = pixelRatio;
     this.pulses.update(time, width, height, pixelRatio);
+    this.dots.update(pixelRatio);
   }
 
   /**
@@ -313,25 +326,42 @@ export class Arcs {
   }
 
   /**
-   * Puts the far end of an arc on the map. Hosts are jittered a little so the many addresses one
-   * provider registers at a single spot fan out instead of drawing one line; hosts in home's own
-   * city are pushed out into a small ring, since an arc of zero length can't be seen.
+   * Frees the slot of the arc that has been gone longest, for a new host when every slot is taken.
+   * A long trail can fill them all. Its pulses are long over, so the slot needs no cooldown.
    */
+  private evict(): number | undefined {
+    let oldest: Arc | undefined;
+    for (const arc of this.arcs.values()) if (!arc.alive && (!oldest || arc.gone > oldest.gone)) oldest = arc;
+    if (!oldest) return undefined;
+    this.arcs.delete(oldest.flow.id);
+    this.pulses.clearSlot(oldest.slot);
+    return oldest.slot;
+  }
+
   private place(arc: Arc) {
-    const { flow } = arc;
+    this.endOf(arc.flow, arc.end);
+    arc.omega = Math.min(arc.end.angleTo(this.home), Math.PI - 1e-3);
+  }
+
+  /**
+   * Where a host goes on the map. Hosts are jittered a little so the many addresses one provider
+   * registers at a single spot fan out instead of drawing one line; hosts in home's own city are
+   * pushed out into a small ring, since an arc of zero length can't be seen.
+   */
+  private endOf(flow: Flow, out: THREE.Vector3) {
     let lat = flow.lat + (hash01(flow.id, 1) - 0.5) * 0.8;
     let lon = flow.lon + ((hash01(flow.id, 2) - 0.5) * 0.8) / Math.max(0.2, Math.cos((flow.lat * Math.PI) / 180));
-    lonLatToVec3(lon, lat, 1, arc.end);
+    lonLatToVec3(lon, lat, 1, out);
     const minAngle = THREE.MathUtils.degToRad(1.6);
-    if (arc.end.angleTo(this.home) < minAngle) {
+    if (out.angleTo(this.home) < minAngle) {
       const bearing = hash01(flow.id, 3) * Math.PI * 2;
       const dist = 1.6 + hash01(flow.id, 4) * 1.6;
       const home = this.homeLonLat;
       lat = home.lat + dist * Math.cos(bearing);
       lon = home.lon + (dist * Math.sin(bearing)) / Math.max(0.2, Math.cos((home.lat * Math.PI) / 180));
-      lonLatToVec3(lon, lat, 1, arc.end);
+      lonLatToVec3(lon, lat, 1, out);
     }
-    arc.omega = Math.min(arc.end.angleTo(this.home), Math.PI - 1e-3);
+    return out;
   }
 
   private write(slot: number, arc: Arc | null, grown = 0) {

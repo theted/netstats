@@ -9,7 +9,9 @@ import { connect, demo, type Snapshot } from './feed.ts';
 import { facing } from './geo.ts';
 import { Globe } from './globe.ts';
 import { Hud } from './hud.ts';
+import { Controls, type Settings } from './settings.ts';
 import { Spin } from './spin.ts';
+import { setTheme } from './theme.ts';
 import './style.css';
 
 const FOV = 40;
@@ -42,7 +44,7 @@ const camera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 100);
 
 const globe = new Globe(translucent);
 const arcs = new Arcs(springs);
-globe.group.add(arcs.ribbons, arcs.ends, arcs.pulses.mesh);
+globe.group.add(arcs.ribbons, arcs.ends, arcs.pulses.mesh, arcs.dots.points);
 scene.add(globe.group);
 globe.loadLand(`${import.meta.env.BASE_URL}geo/countries-110m.json`).catch((e) => console.error('coastlines:', e));
 
@@ -73,7 +75,18 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.3, 0.12);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
-let glow = !params.has('noglow');
+let glow = true;
+
+function apply(s: Settings) {
+  spin.autospin = s.autospin;
+  arcs.trail = s.trail;
+  arcs.dots.points.visible = s.dots;
+  glow = s.glow;
+  setTheme(s.theme);
+}
+const controls = new Controls(app, apply);
+if (params.has('noglow')) controls.set({ glow: false }, false);
+apply(controls.settings);
 
 let width = 1;
 let height = 1;
@@ -104,7 +117,7 @@ canvas.addEventListener('pointerleave', () => (pointer = null));
 
 addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if (e.key === 'b') glow = !glow;
+  if (e.key === 'b') controls.set({ glow: !glow });
   if (e.key === 'h' && home) spin.lookAt(restView(home));
 });
 
@@ -142,5 +155,5 @@ if (import.meta.env.DEV) {
   const step = (frames = 1, dt = 1 / 60) => {
     for (let i = 0; i < frames; i++) render(dt, (debugTime += dt));
   };
-  Object.assign(window, { netstats: { arcs, renderer, scene, camera, spin, step } });
+  Object.assign(window, { netstats: { arcs, renderer, scene, camera, spin, controls, step } });
 }

@@ -3,13 +3,12 @@ import { mesh } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import { FAR_SIDE_GLSL, farSide } from './far-side.ts';
 import { lonLatToVec3 } from './geo.ts';
-
-export const GREEN = new THREE.Color('#00ff55');
+import { ACCENT } from './theme.ts';
 
 /**
- * The globe itself: a near-black sphere with a green fresnel rim and a faint halo, coastlines,
- * hairline borders, a sparse graticule and a beacon at home. Everything is drawn in the group's
- * frame, so rotating the group turns all of it, arcs included.
+ * The globe itself: a near-black sphere with a fresnel rim in the accent colour and a faint halo,
+ * coastlines, hairline borders, a sparse graticule and a beacon at home. Everything is drawn in the
+ * group's frame, so rotating the group turns all of it, arcs included.
  *
  * A solid globe hides its far side with the depth buffer. A translucent one writes no depth, and
  * every material instead dims what lies behind it (see far-side.ts).
@@ -24,7 +23,7 @@ export class Globe {
     this.group.add(sphere(translucent), halo(), graticule());
 
     this.beaconMaterial = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uColor: { value: GREEN }, uPixelRatio: { value: 1 }, uFarSide: farSide },
+      uniforms: { uTime: { value: 0 }, uColor: { value: ACCENT }, uPixelRatio: { value: 1 }, uFarSide: farSide },
       vertexShader: /* glsl */ `
         ${FAR_SIDE_GLSL}
         uniform float uPixelRatio;
@@ -83,12 +82,13 @@ export class Globe {
 }
 
 /**
- * The body: near black, with the limb lit green. Solid, it writes depth and hides everything behind
- * it. Translucent, it writes none, and is drawn first so all the additive lines land on top of it.
+ * The body: near black, with the limb lit in the accent colour. Solid, it writes depth and hides
+ * everything behind it. Translucent, it writes none, and is drawn first so all the additive lines
+ * land on top of it.
  */
 function sphere(translucent: boolean) {
   const material = new THREE.ShaderMaterial({
-    uniforms: { uRim: { value: GREEN } },
+    uniforms: { uRim: { value: ACCENT } },
     vertexShader: /* glsl */ `
       varying vec3 vNormal;
       varying vec3 vView;
@@ -122,8 +122,8 @@ function sphere(translucent: boolean) {
 function halo() {
   const material = new THREE.ShaderMaterial({
     // Its own far-side value, always 0: through a translucent globe the halo's back would wash the
-    // whole disc green. It only ever glows outside the limb.
-    uniforms: { uColor: { value: GREEN }, uFarSide: { value: 0 } },
+    // whole disc. It only ever glows outside the limb.
+    uniforms: { uColor: { value: ACCENT }, uFarSide: { value: 0 } },
     vertexShader: /* glsl */ `
       ${FAR_SIDE_GLSL}
       varying vec3 vNormal;
@@ -156,7 +156,7 @@ function halo() {
 
 function lineMaterial(opacity: number) {
   return new THREE.ShaderMaterial({
-    uniforms: { uColor: { value: GREEN }, uOpacity: { value: opacity }, uFarSide: farSide },
+    uniforms: { uColor: { value: ACCENT }, uOpacity: { value: opacity }, uFarSide: farSide },
     vertexShader: /* glsl */ `
       ${FAR_SIDE_GLSL}
       varying float vShade;
