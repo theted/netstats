@@ -89,9 +89,9 @@ export class Globe {
 }
 
 /**
- * The body: near black, with the limb lit in the accent colour. Solid, it writes depth and hides
- * everything behind it. Translucent, it writes none, and is drawn first so all the additive lines
- * land on top of it.
+ * The body: near black, tinted toward the accent, with the limb lit in the accent colour. Solid,
+ * it writes depth and hides everything behind it. Translucent, it writes none, and is drawn first
+ * so all the additive lines land on top of it.
  */
 function sphere(translucent: boolean) {
   const material = new THREE.ShaderMaterial({
@@ -111,7 +111,7 @@ function sphere(translucent: boolean) {
       varying vec3 vView;
       void main() {
         float f = 1.0 - max(dot(normalize(vNormal), normalize(vView)), 0.0);
-        vec3 base = vec3(0.0, 0.004, 0.002);
+        vec3 base = uRim * 0.005;
         gl_FragColor = vec4(base + uRim * pow(f, 4.0) * 0.16, 1.0);
       }`,
     depthWrite: !translucent,

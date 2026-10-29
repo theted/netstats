@@ -10,24 +10,27 @@ export interface Theme {
 }
 
 export const THEMES = {
+  ice: { accent: '#00e1ff', arc: '#0b86a0', up: '#c4f8ff', down: '#3d8bff' },
   phosphor: { accent: '#00ff55', arc: '#0c9e44', up: '#c8ff3c', down: '#29ff8c' },
   amber: { accent: '#ffb000', arc: '#a86400', up: '#fff27a', down: '#ff7b1c' },
-  ice: { accent: '#00e1ff', arc: '#0b86a0', up: '#c4f8ff', down: '#3d8bff' },
   synth: { accent: '#ff3ecf', arc: '#a02a86', up: '#ffd84a', down: '#9d6bff' },
   mono: { accent: '#e6eef5', arc: '#7d8794', up: '#ffffff', down: '#9fc4ff' },
 } satisfies Record<string, Theme>;
 
 export type ThemeName = keyof typeof THEMES;
 
+/** The theme until one is picked: cyan, with downloads in blue. */
+export const DEFAULT_THEME: ThemeName = 'ice';
+
 /**
  * The scene's colours. Every material holds these objects themselves as uniform values, so
  * setTheme changes them in place and the next frame draws in the new colours. The HUD follows
  * through CSS variables.
  */
-export const ACCENT = new THREE.Color(THEMES.phosphor.accent);
-export const ARC_COLOR = new THREE.Color(THEMES.phosphor.arc);
-export const UP_COLOR = new THREE.Color(THEMES.phosphor.up);
-export const DOWN_COLOR = new THREE.Color(THEMES.phosphor.down);
+export const ACCENT = new THREE.Color(THEMES[DEFAULT_THEME].accent);
+export const ARC_COLOR = new THREE.Color(THEMES[DEFAULT_THEME].arc);
+export const UP_COLOR = new THREE.Color(THEMES[DEFAULT_THEME].up);
+export const DOWN_COLOR = new THREE.Color(THEMES[DEFAULT_THEME].down);
 
 /**
  * A theme for any colour, paired the way the presets are: arcs in a darker shade of it, uploads

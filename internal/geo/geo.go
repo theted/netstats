@@ -4,6 +4,7 @@ package geo
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -33,6 +34,18 @@ type record struct {
 		Latitude  *float64 `maxminddb:"latitude"`
 		Longitude *float64 `maxminddb:"longitude"`
 	} `maxminddb:"location"`
+}
+
+// earthKm is the Earth's mean radius.
+const earthKm = 6371.0
+
+// Km is the great-circle distance to b: the shortest way round the globe, as a plane would fly it.
+func (a Location) Km(b Location) float64 {
+	rad := math.Pi / 180
+	dLat := (b.Lat - a.Lat) * rad
+	dLon := (b.Lon - a.Lon) * rad
+	h := math.Pow(math.Sin(dLat/2), 2) + math.Cos(a.Lat*rad)*math.Cos(b.Lat*rad)*math.Pow(math.Sin(dLon/2), 2)
+	return 2 * earthKm * math.Asin(math.Sqrt(min(h, 1)))
 }
 
 // cacheLimit bounds the lookup cache; it is simply cleared when full.

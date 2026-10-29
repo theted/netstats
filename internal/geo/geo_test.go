@@ -48,3 +48,19 @@ func TestParseLatLon(t *testing.T) {
 		}
 	}
 }
+
+func TestKm(t *testing.T) {
+	stockholm := Location{Lat: 59.33, Lon: 18.07}
+	for _, c := range []struct {
+		to   Location
+		want float64
+	}{
+		{stockholm, 0},
+		{Location{Lat: 51.51, Lon: -0.13}, 1435},    // London
+		{Location{Lat: -33.87, Lon: 151.21}, 15580}, // Sydney
+	} {
+		if got := stockholm.Km(c.to); math.Abs(got-c.want) > c.want*0.01+1 {
+			t.Errorf("to %+v: %.0f km, want about %.0f", c.to, got, c.want)
+		}
+	}
+}

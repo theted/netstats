@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ARC_GLSL } from './arc-shader.ts';
+import { ARC_GLSL, flightPath } from './arc-shader.ts';
 import { FAR_SIDE_GLSL, farSide } from './far-side.ts';
 import { DOWN_COLOR, UP_COLOR } from './theme.ts';
 
@@ -49,6 +49,7 @@ export class Pulses {
         uUp: { value: UP_COLOR },
         uDown: { value: DOWN_COLOR },
         uFarSide: farSide,
+        uFlight: flightPath,
       },
       vertexShader: /* glsl */ `
         ${ARC_GLSL}

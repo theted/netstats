@@ -28,6 +28,7 @@ import (
 	"netstats/internal/names"
 	"netstats/internal/procs"
 	"netstats/internal/server"
+	"netstats/internal/stats"
 	"netstats/web"
 )
 
@@ -118,10 +119,13 @@ func main() {
 		srcs.procs = procs.New()
 		go srcs.procs.Run(ctx, 2*time.Second)
 	}
+	tally := stats.New(time.Now(), *iface, home, db)
+	statsEvery := max(1, int(time.Second / *tick)) // in ticks: about once a second
 	go func() {
 		t := time.NewTicker(*tick)
 		defer t.Stop()
 		prev, lastRefresh := time.Now(), time.Now()
+		ticks := 0
 		for {
 			select {
 			case <-ctx.Done():
@@ -133,7 +137,15 @@ func main() {
 				}
 				table.Tick(now, now.Sub(prev))
 				prev = now
-				msg, err := json.Marshal(srcs.snapshot(now, table.Snapshot()))
+				live := table.Snapshot()
+				tally.Record(live)
+				snap := srcs.snapshot(now, live)
+				if ticks%statsEvery == 0 {
+					r := tally.Report()
+					snap.Stats = &r
+				}
+				ticks++
+				msg, err := json.Marshal(snap)
 				if err != nil {
 					log.Print(err)
 					continue

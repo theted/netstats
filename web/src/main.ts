@@ -5,12 +5,14 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Arcs } from './arcs.ts';
 import { farSide } from './far-side.ts';
-import { connect, demo, type Snapshot } from './feed.ts';
+import { demo } from './demo.ts';
+import { connect, type Snapshot } from './feed.ts';
 import { facing } from './geo.ts';
 import { Globe } from './globe.ts';
-import { Hud } from './hud.ts';
+import { el, Hud } from './hud.ts';
 import { Controls, type Settings } from './settings.ts';
 import { Spin } from './spin.ts';
+import { StatsPanel } from './stats.ts';
 import { setTheme, themeFrom, THEMES } from './theme.ts';
 import './style.css';
 
@@ -55,6 +57,9 @@ const land = globe.loadLand(`${geo}/countries-110m.json`).catch((e) => console.e
 let fineLand = false;
 
 const hud = new Hud(app);
+/** The buttons in the top right corner, for the panels they open. */
+const corner = el('div', 'corner', app);
+const stats = new StatsPanel(corner);
 
 /** Where the globe rests: home turned to face us, tilted part of the way toward its latitude. */
 function restView(home: Snapshot['home']) {
@@ -72,6 +77,7 @@ function onSnapshot(s: Snapshot) {
   arcs.setHome(s.home.lon, s.home.lat);
   arcs.sync(s);
   hud.snapshot(s);
+  if (s.stats) stats.update(s.stats, s.t);
 }
 
 (params.has('demo') ? demo : connect)(onSnapshot, hud.status);
@@ -86,11 +92,12 @@ let glow = true;
 function apply(s: Settings) {
   spin.autospin = s.autospin;
   arcs.trail = s.trail;
+  arcs.flight = s.flight;
   arcs.dots.points.visible = s.dots;
   glow = s.glow;
   setTheme(s.theme === 'custom' ? themeFrom(s.custom) : THEMES[s.theme]);
 }
-const controls = new Controls(app, apply);
+const controls = new Controls(corner, apply);
 if (params.has('noglow')) controls.set({ glow: false }, false);
 apply(controls.settings);
 
@@ -125,6 +132,7 @@ addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === 'b') controls.set({ glow: !glow });
   if (e.key === 'h' && home) spin.lookAt(restView(home));
+  if (e.key === 's') stats.toggle();
 });
 
 const start = performance.now();

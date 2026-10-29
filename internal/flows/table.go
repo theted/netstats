@@ -27,6 +27,8 @@ type Flow struct {
 	TotalDown uint64
 	RateUp    float64       // bytes per second, smoothed
 	RateDown  float64       // bytes per second, smoothed
+	TickUp    uint64        // bytes sent in the interval the latest Tick closed
+	TickDown  uint64        // bytes received in the interval the latest Tick closed
 	RTT       time.Duration // TCP handshake round trip; zero until one has been seen
 
 	pendingUp   uint64
@@ -114,6 +116,7 @@ func (t *Table) Tick(now time.Time, dt time.Duration) {
 		}
 		f.RateUp += alpha * (float64(f.pendingUp)/dt.Seconds() - f.RateUp)
 		f.RateDown += alpha * (float64(f.pendingDown)/dt.Seconds() - f.RateDown)
+		f.TickUp, f.TickDown = f.pendingUp, f.pendingDown
 		f.pendingUp, f.pendingDown = 0, 0
 		for port, sent := range f.synSent {
 			if now.Sub(sent) > 10*time.Second {

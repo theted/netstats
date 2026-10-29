@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { el } from './hud.ts';
-import { THEMES, type ThemeName } from './theme.ts';
+import { cornerPanel } from './panel.ts';
+import { DEFAULT_THEME, THEMES, type ThemeName } from './theme.ts';
 
 export interface Settings {
   /** The globe turns by itself when left alone. */
@@ -10,14 +11,27 @@ export interface Settings {
   /** Show a dot wherever a host has been seen since the page opened. */
   dots: boolean;
   glow: boolean;
+  /** Arcs fly low, like a plane's route, rather than bowing up off the globe. */
+  flight: boolean;
   /** A preset, or the colour picked in `custom`. */
   theme: ThemeName | 'custom';
   custom: string;
 }
 
+type Toggle = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
+const TOGGLES: Toggle[] = ['autospin', 'glow', 'dots', 'flight'];
+
 /** The trail slider's stops, in seconds. */
 const TRAILS = [0, 10, 30, 60, 120, 300, 600];
-const DEFAULTS: Settings = { autospin: true, trail: 0, dots: false, glow: true, theme: 'phosphor', custom: '#ff6a3d' };
+const DEFAULTS: Settings = {
+  autospin: true,
+  trail: 0,
+  dots: false,
+  glow: true,
+  flight: false,
+  theme: DEFAULT_THEME,
+  custom: '#ff6a3d',
+};
 const KEY = 'netstats:settings';
 
 const COG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
@@ -32,10 +46,8 @@ function load(): Settings {
   const s = { ...DEFAULTS };
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
-    if (typeof saved.autospin === 'boolean') s.autospin = saved.autospin;
+    for (const key of TOGGLES) if (typeof saved[key] === 'boolean') s[key] = saved[key];
     if (TRAILS.includes(saved.trail)) s.trail = saved.trail;
-    if (typeof saved.dots === 'boolean') s.dots = saved.dots;
-    if (typeof saved.glow === 'boolean') s.glow = saved.glow;
     if (saved.theme === 'custom' || Object.hasOwn(THEMES, saved.theme)) s.theme = saved.theme;
     if (/^#[0-9a-f]{6}$/i.test(saved.custom)) s.custom = saved.custom;
   } catch {
@@ -52,39 +64,23 @@ function save(s: Settings) {
   }
 }
 
-/**
- * The cog in the top right corner and the panel it opens. The panel is a popover, so it closes on
- * Escape or a click elsewhere, and leaves the globe free to drag while it's open. Settings are kept
- * in this browser's localStorage.
- */
+/** The cog in the top right corner and the panel it opens. Settings are kept in this browser's localStorage. */
 export class Controls {
   settings = load();
   /** Puts each input in step with the settings. */
   private readonly refresh: (() => void)[] = [];
 
   constructor(
-    root: HTMLElement,
+    corner: HTMLElement,
     private readonly onChange: (s: Settings) => void,
   ) {
-    const cog = el('button', 'cog', root);
-    cog.innerHTML = COG;
-    cog.title = 'Settings';
-    cog.setAttribute('aria-label', 'Settings');
-    cog.setAttribute('popovertarget', 'settings');
-
-    const panel = el('div', 'settings', root);
-    panel.id = 'settings';
-    panel.setAttribute('popover', '');
-    const head = el('div', 'head', panel);
-    el('span', '', head, 'SETTINGS');
-    const close = el('button', 'close', head, '×');
-    close.setAttribute('aria-label', 'Close');
-    close.setAttribute('popovertarget', 'settings');
-    close.setAttribute('popovertargetaction', 'hide');
+    const { button, panel } = cornerPanel(corner, 'settings', 'Settings', COG);
+    button.classList.add('cog');
 
     this.check(panel, 'autospin', 'spin by itself');
     this.check(panel, 'glow', 'glow');
     this.check(panel, 'dots', 'keep a dot where hosts were');
+    this.check(panel, 'flight', 'flight paths instead of arcs');
 
     const trail = el('label', 'slider', panel);
     const row = el('div', 'row', trail);
@@ -147,7 +143,7 @@ export class Controls {
     this.onChange(this.settings);
   }
 
-  private check(panel: HTMLElement, key: 'autospin' | 'glow' | 'dots', text: string) {
+  private check(panel: HTMLElement, key: Toggle, text: string) {
     const label = el('label', 'check', panel);
     const input = el('input', '', label) as HTMLInputElement;
     input.type = 'checkbox';

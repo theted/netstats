@@ -1,17 +1,20 @@
 import type { Flow, Snapshot, Status } from './feed.ts';
 
-/** Bytes per second, in the largest unit that keeps the number under a thousand. */
-export function formatRate(b: number): string {
-  if (b < 1000) return `${Math.round(b)} B/s`;
-  const units = ['kB/s', 'MB/s', 'GB/s'];
-  let v = b / 1000;
+const UNITS = ['B', 'kB', 'MB', 'GB', 'TB', 'PB'];
+
+/** Bytes, in the largest unit that keeps the number under a thousand. */
+export function formatBytes(b: number): string {
+  let v = b;
   let u = 0;
-  while (v >= 1000 && u < units.length - 1) {
+  while (v >= 1000 && u < UNITS.length - 1) {
     v /= 1000;
     u++;
   }
-  return `${v.toFixed(v < 10 ? 1 : 0)} ${units[u]}`;
+  return u === 0 ? `${Math.round(v)} B` : `${v.toFixed(v < 10 ? 1 : 0)} ${UNITS[u]}`;
 }
+
+/** Bytes per second, as formatBytes puts them. */
+export const formatRate = (b: number) => `${formatBytes(b)}/s`;
 
 export function el(tag: string, className: string, parent: HTMLElement, text = '') {
   const e = document.createElement(tag);
@@ -64,7 +67,7 @@ export class Hud {
     const help = el('div', 'hud help', root);
     this.note = el('div', '', help, 'Live traffic of this web server · no IP addresses are shown or stored');
     this.note.hidden = true;
-    el('div', '', help, 'drag · scroll · h home · b glow');
+    el('div', '', help, 'drag · scroll · h home · s stats · b glow');
     const attribution = el('div', '', help);
     const link = el('a', '', attribution, 'IP geolocation by DB-IP') as HTMLAnchorElement;
     link.href = 'https://db-ip.com';

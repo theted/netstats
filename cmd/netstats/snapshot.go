@@ -13,6 +13,7 @@ import (
 	"netstats/internal/geo"
 	"netstats/internal/names"
 	"netstats/internal/procs"
+	"netstats/internal/stats"
 )
 
 type snapshot struct {
@@ -23,6 +24,9 @@ type snapshot struct {
 	Unlocated int        `json:"unlocated"`
 	Public    bool       `json:"public,omitempty"` // addresses are withheld; the page is shown to strangers
 	Flows     []flowJSON `json:"flows"`
+	// Running totals since the collector started. They change slowly, so they ride along only now
+	// and then.
+	Stats *stats.Report `json:"stats,omitempty"`
 }
 
 type point struct {
@@ -80,7 +84,7 @@ func hashedIDs() func(netip.Addr) string {
 
 func (s sources) snapshot(now time.Time, live []flows.Flow) snapshot {
 	snap := snapshot{
-		T:     now.UnixMilli(),
+		T:      now.UnixMilli(),
 		Home:   point{Lat: s.home.Lat, Lon: s.home.Lon, City: s.home.City},
 		Public: s.public,
 		Flows:  make([]flowJSON, 0, min(len(live), s.maxFlows)),

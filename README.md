@@ -40,6 +40,15 @@ and `?demo` shows made-up traffic without a collector.
 
 URL switches: `?demo`, `?springs` (springy controls), `?solid` (opaque globe), `?noglow`.
 
+The cog opens the settings, kept in the browser: among them the colour (cyan by default) and
+**flight paths**, which fly each arc low along the shortest route, climbing out and coming down
+like a plane, instead of bowing up off the globe. The bars beside it, or `s`, open the **stats**:
+
+- since the collector started: the traffic each way, its peak, how many distinct hosts and
+  countries, and the farthest place reached;
+- since the machine booted: the capture interface's own counters, LAN traffic included (Linux);
+- the leading countries, ranked by hosts or by traffic, and the busiest services.
+
 ## Public mode
 
 `-public` is for a page anyone can open:
@@ -47,7 +56,9 @@ URL switches: `?demo`, `?springs` (springy controls), `?solid` (opaque globe), `
 - **No addresses.** Each host is identified by a keyed hash under a key that exists only in the
   running process. An id can't be turned back into an address, or linked to the same host after a
   restart. Places are city-level estimates.
-- **Nothing is stored.** Snapshots live in memory for one tick.
+- **Nothing is stored.** Snapshots live in memory for one tick. The stats' running totals are
+  sums per country and per service, and distinct hosts are counted with HyperLogLog sketches,
+  which keep no addresses.
 - **No process names.**
 - **Host names stay.** They come from the server's own DNS lookups, so they name what the server
   connects out to, never who connects in.
