@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Flow, Snapshot } from './feed.ts';
 import { hash01, lonLatToVec3 } from './geo.ts';
-import { ARC_GLSL } from './arc-shader.ts';
+import { ARC_GLSL, flightPath } from './arc-shader.ts';
 import { Dots } from './dots.ts';
 import { FAR_SIDE_GLSL, farSide } from './far-side.ts';
 import { Pulses } from './pulses.ts';
@@ -25,6 +25,8 @@ const GROW_TIME = 0.7;
 /** With springs on, the spring that lifts a new arc out of the surface; d < 2√k (≈12.6), so it overshoots. */
 const LIFT_K = 40;
 const LIFT_D = 5;
+/** Time constant, in seconds, of the change between bows and flight paths. */
+const FLIGHT_TAU = 0.3;
 
 
 interface Arc {
@@ -32,8 +34,9 @@ interface Arc {
   flow: Flow;
   end: THREE.Vector3;
   omega: number;
-  lift: number;
-  liftVel: number;
+  /** How far the arc has risen out of the surface: 0 flat, 1 at rest. Its height is the shader's. */
+  rise: number;
+  riseVel: number;
   age: number;
   activity: number;
   fade: number;
@@ -60,6 +63,8 @@ export class Arcs {
   hovered: string | null = null;
   /** Seconds an arc takes to fade once its host has dropped out of the feed. */
   trail = 0;
+  /** Draw arcs as flight paths, low over the ground like a plane's route, rather than as bows. */
+  flight = false;
 
   private readonly data = new Float32Array(MAX_ARCS * 3 * 4);
   private readonly arcs = new Map<string, Arc>();
@@ -88,6 +93,7 @@ export class Arcs {
         uHot: { value: ACCENT },
         uOpacity: { value: ARC_OPACITY },
         uFarSide: farSide,
+        uFlight: flightPath,
       },
       vertexShader: /* glsl */ `
         ${ARC_GLSL}
@@ -147,7 +153,13 @@ export class Arcs {
     this.ribbons.renderOrder = 2;
 
     this.endMaterial = new THREE.ShaderMaterial({
-      uniforms: { uArcs: { value: this.texture }, uPixelRatio: { value: 1 }, uColor: { value: ACCENT }, uFarSide: farSide },
+      uniforms: {
+        uArcs: { value: this.texture },
+        uPixelRatio: { value: 1 },
+        uColor: { value: ACCENT },
+        uFarSide: farSide,
+        uFlight: flightPath,
+      },
       vertexShader: /* glsl */ `
         ${ARC_GLSL}
         ${FAR_SIDE_GLSL}
@@ -210,8 +222,8 @@ export class Arcs {
         flow,
         end: new THREE.Vector3(),
         omega: 0,
-        lift: 0,
-        liftVel: 0,
+        rise: 0,
+        riseVel: 0,
         age: 0,
         activity: 0,
         fade: 0,
@@ -236,6 +248,7 @@ export class Arcs {
     }
 
     const ease = (tau: number) => 1 - Math.exp(-dt / tau);
+    flightPath.value += ((this.flight ? 1 : 0) - flightPath.value) * ease(FLIGHT_TAU);
     for (const [id, arc] of this.arcs) {
       arc.age += dt;
       const grown = 1 - (1 - Math.min(1, arc.age / GROW_TIME)) ** 3;
@@ -244,11 +257,11 @@ export class Arcs {
         const steps = Math.ceil(dt * 120);
         for (let i = 0; i < steps; i++) {
           const h = dt / steps;
-          arc.liftVel += (LIFT_K * (liftFor(arc.omega) - arc.lift) - LIFT_D * arc.liftVel) * h;
-          arc.lift += arc.liftVel * h;
+          arc.riseVel += (LIFT_K * (1 - arc.rise) - LIFT_D * arc.riseVel) * h;
+          arc.rise += arc.riseVel * h;
         }
       } else {
-        arc.lift = liftFor(arc.omega) * grown;
+        arc.rise = grown;
       }
 
       const rate = arc.flow.up + arc.flow.down;
@@ -374,7 +387,7 @@ export class Arcs {
     d[row(0)] = this.home.x;
     d[row(0) + 1] = this.home.y;
     d[row(0) + 2] = this.home.z;
-    d[row(0) + 3] = Math.max(0, arc.lift);
+    d[row(0) + 3] = Math.max(0, arc.rise);
     d[row(1)] = arc.end.x;
     d[row(1) + 1] = arc.end.y;
     d[row(1) + 2] = arc.end.z;
@@ -384,11 +397,6 @@ export class Arcs {
     d[row(2) + 2] = arc.highlight;
     d[row(2) + 3] = arc.activity;
   }
-}
-
-/** Peak height of an arc above the surface: low for neighbours, a tall bow for the far side. */
-function liftFor(omega: number) {
-  return 0.05 + (0.4 * omega) / Math.PI;
 }
 
 /** Pulse rate grows with the log of throughput: about 1/s at 1.5 kB/s, 3/s at 150 kB/s. */

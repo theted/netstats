@@ -11,6 +11,7 @@ import (
 	"netstats/internal/flows"
 	"netstats/internal/geo"
 	"netstats/internal/names"
+	"netstats/internal/stats"
 )
 
 type berlin struct{}
@@ -24,7 +25,7 @@ var addrs = []string{"203.0.113.7", "2001:db8::42"}
 func live() []flows.Flow {
 	var fs []flows.Flow
 	for _, a := range addrs {
-		fs = append(fs, flows.Flow{Remote: netip.MustParseAddr(a), Proto: capture.ProtoTCP, Port: 443, RateUp: 100, RateDown: 2000})
+		fs = append(fs, flows.Flow{Remote: netip.MustParseAddr(a), Proto: capture.ProtoTCP, Port: 443, RateUp: 100, RateDown: 2000, TickUp: 25, TickDown: 500})
 	}
 	return fs
 }
@@ -33,6 +34,10 @@ func TestPublicSnapshotWithholdsAddresses(t *testing.T) {
 	s := sources{db: berlin{}, names: names.New(), maxFlows: 300, public: true, idFor: hashedIDs()}
 	now := time.Unix(1000, 0)
 	first := s.snapshot(now, live())
+	tally := stats.New(now, "", s.home, s.db)
+	tally.Record(live())
+	report := tally.Report()
+	first.Stats = &report
 	msg, err := json.Marshal(first)
 	if err != nil {
 		t.Fatal(err)
@@ -44,6 +49,9 @@ func TestPublicSnapshotWithholdsAddresses(t *testing.T) {
 		if bytes.Contains(msg, []byte(a)) {
 			t.Errorf("snapshot gives away %s: %s", a, msg)
 		}
+	}
+	if !bytes.Contains(msg, []byte(`"hosts":2`)) {
+		t.Errorf("stats don't count the two hosts: %s", msg)
 	}
 	if !first.Public || len(first.Flows) != 2 || first.Flows[0].ID == first.Flows[1].ID {
 		t.Fatalf("want two flows with distinct ids in a public snapshot, got %+v", first)

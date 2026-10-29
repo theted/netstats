@@ -1,11 +1,11 @@
 /* The accent, up and down colours are reset from theme.ts when the theme changes. */
 :root {
-  --accent: #00ff55;
-  --accent-rgb: 0 255 85;
+  --accent: #00e1ff;
+  --accent-rgb: 0 225 255;
   --dim: rgb(var(--accent-rgb) / 0.45);
   --faint: rgb(var(--accent-rgb) / 0.22);
-  --up: #c8ff3c;
-  --down: #29ff8c;
+  --up: #c4f8ff;
+  --down: #3d8bff;
   color-scheme: dark;
 }
 
@@ -179,28 +179,33 @@ button {
   cursor: pointer;
 }
 
-.cog {
+.corner {
   position: absolute;
   top: 14px;
   right: 16px;
+  display: flex;
+  gap: 4px;
+}
+
+.tool {
   padding: 6px;
   color: var(--faint);
   line-height: 0;
   transition: color 0.2s;
 }
 
-.cog svg {
+.tool svg {
   width: 16px;
   height: 16px;
   transition: transform 0.6s ease;
 }
 
-.cog:hover,
-.cog:focus-visible {
+.tool:hover,
+.tool:focus-visible {
   color: var(--dim);
 }
 
-.cog:focus-visible {
+.tool:focus-visible {
   outline: 1px solid var(--faint);
   border-radius: 50%;
 }
@@ -209,11 +214,13 @@ button {
   transform: rotate(60deg);
 }
 
-/* A popover: placed under the cog instead of the browser's default centring. */
-.settings {
+/* A popover: placed under the corner buttons instead of the browser's default centring. */
+.panel {
   inset: 50px 22px auto auto;
   margin: 0;
   width: min(260px, calc(100vw - 32px));
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
   box-sizing: border-box;
   padding: 10px 14px 12px;
   border: 1px solid var(--faint);
@@ -223,7 +230,7 @@ button {
   text-shadow: 0 0 6px rgb(var(--accent-rgb) / 0.35);
 }
 
-.settings .head {
+.panel .head {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -232,14 +239,18 @@ button {
   letter-spacing: 0.18em;
 }
 
-.settings .close {
+.panel .close {
   font-size: 16px;
   line-height: 1;
   color: var(--dim);
 }
 
-.settings .close:hover {
+.panel .close:hover {
   color: var(--accent);
+}
+
+.panel .note {
+  color: var(--faint);
 }
 
 .settings input {
@@ -277,10 +288,6 @@ button {
   display: block;
   width: 100%;
   margin: 6px 0 2px;
-}
-
-.settings .note {
-  color: var(--faint);
 }
 
 .settings .colors {
@@ -389,6 +396,142 @@ button {
 
 .settings .reset:hover {
   color: var(--dim);
+}
+
+/* Stats: totals over a span of time, then ranked lists with a share bar under each row. */
+.stats {
+  width: min(300px, calc(100vw - 32px));
+  font-variant-numeric: tabular-nums;
+}
+
+.stats section + section {
+  margin-top: 14px;
+}
+
+.stats .label {
+  display: flex;
+  justify-content: space-between;
+  color: var(--dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.stats .label .span {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.stats .total {
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+.stats .split {
+  display: flex;
+  gap: 16px;
+}
+
+.stats .up {
+  color: var(--up);
+}
+
+.stats .down {
+  color: var(--down);
+}
+
+.stats dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1px 12px;
+  margin: 8px 0 0;
+}
+
+.stats dt {
+  color: var(--dim);
+}
+
+.stats dd {
+  margin: 0;
+  text-align: right;
+  white-space: pre-wrap;
+}
+
+.stats dd.place {
+  grid-column: 1 / -1;
+  color: var(--dim);
+}
+
+/* The ranked lists and the header above them share columns: a name, then two values. */
+.stats .ranked,
+.stats .ranks li {
+  display: grid;
+  grid-template-columns: 1fr 5.2em 5.2em;
+  column-gap: 8px;
+  align-items: baseline;
+}
+
+.stats .ranked span {
+  justify-self: start;
+}
+
+.stats .sort {
+  justify-self: end;
+  color: var(--dim);
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.stats .sort:hover,
+.stats .sort.active {
+  color: var(--accent);
+}
+
+.stats .ranks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stats .ranks li {
+  padding-top: 3px;
+}
+
+.stats .ranks .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats .ranks .note {
+  color: var(--faint);
+}
+
+.stats .ranks .value {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.stats .ranks .dim {
+  color: var(--dim);
+}
+
+/* The share bar: the track a faint step of the accent, the fill the accent itself. */
+.stats .bar {
+  grid-column: 1 / -1;
+  height: 2px;
+  margin-top: 2px;
+  background: rgb(var(--accent-rgb) / 0.12);
+}
+
+.stats .bar::after {
+  content: '';
+  display: block;
+  height: 100%;
+  width: calc(var(--share) * 100%);
+  background: var(--accent);
+  box-shadow: 0 0 4px rgb(var(--accent-rgb) / 0.6);
 }
 
 @media (max-width: 640px) {

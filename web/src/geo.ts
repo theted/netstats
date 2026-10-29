@@ -31,3 +31,10 @@ export function hash01(s: string, salt = 0): number {
   h ^= h >>> 15;
   return (h >>> 0) / 4294967296;
 }
+
+const EARTH_KM = 6371;
+
+/** Great-circle distance in km: the shortest way round the globe, as a plane would fly it. */
+export function kmBetween(a: { lon: number; lat: number }, b: { lon: number; lat: number }) {
+  return lonLatToVec3(a.lon, a.lat, 1).angleTo(lonLatToVec3(b.lon, b.lat, 1)) * EARTH_KM;
+}

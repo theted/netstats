@@ -70,3 +70,20 @@ func TestHandshakeRTT(t *testing.T) {
 		t.Errorf("rtt %v, want 30ms", rtt)
 	}
 }
+
+func TestTickBytes(t *testing.T) {
+	tab := New(30 * time.Second)
+	now := time.Unix(1000, 0)
+	tab.Add(pkt(now, capture.Down, 1500))
+	tab.Add(pkt(now, capture.Down, 500))
+	tab.Add(pkt(now, capture.Up, 60))
+	now = now.Add(250 * time.Millisecond)
+	tab.Tick(now, 250*time.Millisecond)
+	if f := tab.Snapshot()[0]; f.TickDown != 2000 || f.TickUp != 60 {
+		t.Errorf("first tick: up %d down %d, want 60 and 2000", f.TickUp, f.TickDown)
+	}
+	tab.Tick(now.Add(250*time.Millisecond), 250*time.Millisecond)
+	if f := tab.Snapshot()[0]; f.TickDown != 0 || f.TickUp != 0 {
+		t.Errorf("quiet tick: up %d down %d, want 0 and 0", f.TickUp, f.TickDown)
+	}
+}
